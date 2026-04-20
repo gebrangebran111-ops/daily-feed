@@ -33,7 +33,8 @@ def send_email(content):
     msg["Subject"] = "Your Daily Inspiration Feed"
     msg["From"] = sender_email
     msg["To"] = recipient_email
-    msg.set_content(content)
+    msg.set_content(content["text"])
+    msg.add_alternative(content["html"], subtype="html")
 
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
