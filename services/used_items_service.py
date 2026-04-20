@@ -3,22 +3,29 @@ from pathlib import Path
 
 
 USED_ITEMS_PATH = Path(__file__).resolve().parent.parent / "used_items.json"
+DEFAULT_USED_ITEMS = {
+    "quotes": [],
+    "songs": [],
+    "locations": [],
+    "song_difficulty_index": 0,
+    "location_difficulty_index": 0,
+    "last_song_artist": "",
+    "last_location_type": "",
+}
 
 
 def load_used_items():
     if not USED_ITEMS_PATH.exists():
-        return {"quotes": [], "songs": [], "locations": []}
+        return DEFAULT_USED_ITEMS.copy()
 
     try:
         data = json.loads(USED_ITEMS_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {"quotes": [], "songs": [], "locations": []}
+        return DEFAULT_USED_ITEMS.copy()
 
-    return {
-        "quotes": data.get("quotes", []),
-        "songs": data.get("songs", []),
-        "locations": data.get("locations", []),
-    }
+    merged = DEFAULT_USED_ITEMS.copy()
+    merged.update(data)
+    return merged
 
 
 def save_used_items(used_items):
