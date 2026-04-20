@@ -1,0 +1,38 @@
+import json
+from pathlib import Path
+
+
+USED_ITEMS_PATH = Path(__file__).resolve().parent.parent / "used_items.json"
+
+
+def load_used_items():
+    if not USED_ITEMS_PATH.exists():
+        return {"quotes": [], "songs": [], "locations": []}
+
+    try:
+        data = json.loads(USED_ITEMS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"quotes": [], "songs": [], "locations": []}
+
+    return {
+        "quotes": data.get("quotes", []),
+        "songs": data.get("songs", []),
+        "locations": data.get("locations", []),
+    }
+
+
+def save_used_items(used_items):
+    USED_ITEMS_PATH.write_text(
+        json.dumps(used_items, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def reset_if_all_used(used_items, total_quotes, total_songs, total_locations):
+    if len(used_items["quotes"]) >= total_quotes:
+        used_items["quotes"] = []
+    if len(used_items["songs"]) >= total_songs:
+        used_items["songs"] = []
+    if len(used_items["locations"]) >= total_locations:
+        used_items["locations"] = []
+    return used_items
