@@ -1,11 +1,9 @@
 {
-  "quotes": [
-    "Discipline is choosing between what you want now and what you want most. - Abraham Lincoln"
-  ],
-  "songs": [
-    "Sweet Home Alabama::Lynyrd Skynyrd"
-  ],
-  "locations": [
-    "Yosemite National Park"
-  ]
+  "quotes": [],
+  "songs": [],
+  "locations": [],
+  "song_difficulty_index": 0,
+  "location_difficulty_index": 0,
+  "last_song_artist": "",
+  "last_location_type": ""
 }
