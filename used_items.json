@@ -1,9 +1,15 @@
 {
-  "quotes": [],
-  "songs": [],
-  "locations": [],
-  "song_difficulty_index": 0,
-  "location_difficulty_index": 0,
-  "last_song_artist": "",
-  "last_location_type": ""
+  "quotes": [
+    "The best way out is always through. - Robert Frost"
+  ],
+  "songs": [
+    "Horse with No Name::America"
+  ],
+  "locations": [
+    "Tannourine Cedars Reserve"
+  ],
+  "song_difficulty_index": 1,
+  "location_difficulty_index": 1,
+  "last_song_artist": "America",
+  "last_location_type": "Hiking/Camping"
 }
