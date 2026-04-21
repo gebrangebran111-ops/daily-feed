@@ -3,25 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from services.email_service import send_email
-from services.openai_service import generate_daily_content
-
-
-def _fallback_daily_content():
-    return {
-        "quote": "Small progress every day adds up to big results.",
-        "song": {
-            "title": "Stand by Me",
-            "artist": "Ben E. King",
-            "difficulty": "easy",
-            "chords": "G - Em - C - D",
-        },
-        "adventure": {
-            "name": "Shouf Biosphere Reserve",
-            "type": "Hiking",
-            "difficulty": "easy",
-            "description": "A calm cedar forest route with beautiful mountain air.",
-        },
-    }
+from services.daily_content_service import generate_daily_content
 
 
 def should_send_now():
@@ -32,43 +14,53 @@ def should_send_now():
 
 
 def build_daily_message():
-    try:
-        daily = generate_daily_content()
-    except Exception:
-        # Keep the daily email flowing even if OpenAI is temporarily rate-limited.
-        daily = _fallback_daily_content()
+    daily = generate_daily_content()
+    verse = daily["verse"]
+    weather = daily["weather"]
+    news = daily["news"]
+    fun_fact = daily["fun_fact"]
     quote = daily["quote"]
-    song = daily["song"]
-    location = daily["adventure"]
+    today_weather = weather["days"][0]
+    next_weather = weather["days"][1]
 
     lines = [
         "DAILY FEED",
         "Your personal morning boost",
         "",
         "----------------------------------------------",
-        "💬 QUOTE",
+        "📖 VERSE OF THE DAY",
         "----------------------------------------------",
         "",
-        f"\"{quote}\"",
+        f"\"{verse['text']}\"",
+        f"- {verse['reference']}",
         "",
         "----------------------------------------------",
-        "🎸 GUITAR",
+        "🌤️ WEATHER (BEIRUT)",
         "----------------------------------------------",
         "",
-        f"Song       : {song['title']}",
-        f"Artist     : {song['artist']}",
-        f"Difficulty : {song['difficulty'].title()}",
-        f"Chords     : {song['chords']}",
+        f"Today    : {today_weather['condition']}, {today_weather['temp_min']}C to {today_weather['temp_max']}C, rain {today_weather['rain_mm']} mm",
+        f"Tomorrow : {next_weather['condition']}, {next_weather['temp_min']}C to {next_weather['temp_max']}C, rain {next_weather['rain_mm']} mm",
         "",
         "----------------------------------------------",
-        "🏕️ ADVENTURE (LEBANON)",
+        "🗞️ BIG INTERNATIONAL NEWS",
         "----------------------------------------------",
         "",
-        f"Spot       : {location['name']}",
-        f"Type       : {location['type']} ({location['difficulty'].title()})",
-        f"Description: {location['description']}",
+        f"{news['title']}",
+        f"Source: {news['source']}",
+        f"Link  : {news['url'] or 'Not available'}",
         "",
-        "Tip: Small steps daily create big results.",
+        "----------------------------------------------",
+        "🧠 FUN FACT OF THE DAY",
+        "----------------------------------------------",
+        "",
+        fun_fact,
+        "",
+        "----------------------------------------------",
+        "💬 QUOTE OF THE DAY",
+        "----------------------------------------------",
+        "",
+        f"\"{quote['text']}\"",
+        f"- {quote['author']}",
         "",
         "Have a strong day! 🌞",
     ]
@@ -88,19 +80,25 @@ def build_daily_message():
             </tr>
             <tr>
               <td style="padding:22px 28px;">
-                <h2 style="margin:0 0 10px 0;font-size:18px;">💬 Quote</h2>
-                <p style="margin:0 0 18px 0;line-height:1.7;">"{quote}"</p>
+                <h2 style="margin:0 0 10px 0;font-size:18px;">📖 Verse of the Day</h2>
+                <p style="margin:0 0 4px 0;line-height:1.7;">"{verse["text"]}"</p>
+                <p style="margin:0 0 18px 0;color:#64748b;"><em>{verse["reference"]}</em></p>
 
-                <h2 style="margin:0 0 10px 0;font-size:18px;">🎸 Guitar</h2>
-                <p style="margin:0 0 6px 0;"><strong>Song:</strong> {song["title"]}</p>
-                <p style="margin:0 0 6px 0;"><strong>Artist:</strong> {song["artist"]}</p>
-                <p style="margin:0 0 6px 0;"><strong>Difficulty:</strong> {song["difficulty"].title()}</p>
-                <p style="margin:0 0 18px 0;"><strong>Chords:</strong> {song["chords"]}</p>
+                <h2 style="margin:0 0 10px 0;font-size:18px;">🌤️ Weather (Beirut)</h2>
+                <p style="margin:0 0 6px 0;"><strong>Today:</strong> {today_weather["condition"]}, {today_weather["temp_min"]}C to {today_weather["temp_max"]}C, rain {today_weather["rain_mm"]} mm</p>
+                <p style="margin:0 0 18px 0;"><strong>Tomorrow:</strong> {next_weather["condition"]}, {next_weather["temp_min"]}C to {next_weather["temp_max"]}C, rain {next_weather["rain_mm"]} mm</p>
 
-                <h2 style="margin:0 0 10px 0;font-size:18px;">🏕️ Adventure (Lebanon)</h2>
-                <p style="margin:0 0 6px 0;"><strong>Spot:</strong> {location["name"]}</p>
-                <p style="margin:0 0 6px 0;"><strong>Type:</strong> {location["type"]} ({location["difficulty"].title()})</p>
-                <p style="margin:0 0 18px 0;"><strong>Description:</strong> {location["description"]}</p>
+                <h2 style="margin:0 0 10px 0;font-size:18px;">🗞️ Big International News</h2>
+                <p style="margin:0 0 6px 0;"><strong>Headline:</strong> {news["title"]}</p>
+                <p style="margin:0 0 6px 0;"><strong>Source:</strong> {news["source"]}</p>
+                <p style="margin:0 0 18px 0;"><strong>Link:</strong> {news["url"] or "Not available"}</p>
+
+                <h2 style="margin:0 0 10px 0;font-size:18px;">🧠 Fun Fact of the Day</h2>
+                <p style="margin:0 0 18px 0;line-height:1.7;">{fun_fact}</p>
+
+                <h2 style="margin:0 0 10px 0;font-size:18px;">💬 Quote of the Day</h2>
+                <p style="margin:0 0 4px 0;line-height:1.7;">"{quote["text"]}"</p>
+                <p style="margin:0 0 18px 0;color:#64748b;"><em>- {quote["author"]}</em></p>
 
                 <div style="padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
                   <p style="margin:0;">Tip: Small steps daily create big results.</p>
