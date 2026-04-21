@@ -114,39 +114,33 @@ def get_weather():
 
 def get_international_news():
     logger.info("--- Fetching: International News ---")
-    api_key = os.getenv("NEWSAPI_KEY")
+    api_key = os.getenv("GNEWS_API_KEY")
     if not api_key:
-        logger.error("NEWSAPI_KEY env variable is missing — skipping news fetch")
-        return {"headlines": [{"title": "News unavailable (NEWSAPI_KEY not configured).", "source": "—"}]}
+        logger.error("GNEWS_API_KEY env variable is missing — skipping news fetch")
+        return {"headlines": [{"title": "News unavailable (GNEWS_API_KEY not configured).", "source": "—"}]}
 
-    query = parse.urlencode({
-        "q": "(politics OR economy OR technology OR geopolitics OR diplomacy)",
-        "language": "en",
-        "sortBy": "popularity",
-        "pageSize": 12,
-    })
-    url = f"https://newsapi.org/v2/everything?{query}"
+    url = (
+        f"https://gnews.io/api/v4/top-headlines?"
+        f"category=general&lang=en&max=3&apikey={api_key}"
+    )
     try:
-        data = _fetch_json(url, headers={"X-Api-Key": api_key})
-        seen_titles = set()
-        headlines = []
-        for article in data.get("articles", []):
-            title = (article.get("title") or "").strip()
-            source = (article.get("source", {}).get("name") or "Unknown").strip()
-            if not title or title in seen_titles:
-                continue
-            seen_titles.add(title)
-            headlines.append({"title": title, "source": source})
-            if len(headlines) == 3:
-                break
-        if not headlines:
-            raise ValueError("No news headlines returned in API response")
+        data = _fetch_json(url)
+        articles = data.get("articles", [])
+        if not articles:
+            raise ValueError("No articles returned from GNews API")
+        headlines = [
+            {
+                "title": a["title"].strip(),
+                "source": a.get("source", {}).get("name", "Unknown").strip(),
+            }
+            for a in articles[:3]
+        ]
         logger.info("News fetched successfully: %s headlines", len(headlines))
         return {"headlines": headlines}
     except Exception as exc:
         logger.error("News fetch failed: %s", exc)
         logger.warning("FALLBACK triggered for news")
-        return {"headlines": [{"title": "News unavailable — could not reach News API.", "source": "—"}]}
+        return {"headlines": [{"title": "News unavailable — could not reach GNews API.", "source": "—"}]}
 
 
 def get_fun_fact():
@@ -164,7 +158,7 @@ def get_fun_fact():
 def get_quote_of_the_day():
     logger.info("--- Fetching: Quote of the Day ---")
     try:
-        data = _fetch_json("https://dummyjson.com/quotes/random")
+        data = _fetch_json("https://quoteslate.vercel.app/api/quotes/random")
         logger.info("Quote fetched successfully")
         return {"text": data["quote"].strip(), "author": data["author"].strip()}
     except Exception as exc:
