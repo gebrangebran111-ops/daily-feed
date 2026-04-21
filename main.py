@@ -1,3 +1,7 @@
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from services.email_service import send_email
 from services.openai_service import generate_daily_content
 
@@ -18,6 +22,13 @@ def _fallback_daily_content():
             "description": "A calm cedar forest route with beautiful mountain air.",
         },
     }
+
+
+def should_send_now():
+    if os.getenv("DAILY_FEED_FORCE_SEND", "").lower() in {"1", "true", "yes"}:
+        return True
+    beirut_now = datetime.now(ZoneInfo("Asia/Beirut"))
+    return beirut_now.hour == 7
 
 
 def build_daily_message():
@@ -113,6 +124,9 @@ def build_daily_message():
 
 
 if __name__ == "__main__":
+    if not should_send_now():
+        print("Skipped: not 7 AM Beirut time.")
+        raise SystemExit(0)
     content = build_daily_message()
     print(content["text"])
     send_email(content)
