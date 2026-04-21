@@ -23,7 +23,6 @@ jobs:
           DAILY_FEED_EMAIL: ${{ secrets.EMAIL_USER }}
           DAILY_FEED_PASSWORD: ${{ secrets.EMAIL_PASS }}
           DAILY_FEED_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
           DAILY_FEED_FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
         run: python main.py
