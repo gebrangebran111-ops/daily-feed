@@ -2,6 +2,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from urllib import parse
 from urllib import error
 from urllib import request
 
@@ -17,20 +18,20 @@ def _extract_json_object(content):
     return json.loads(content[start : end + 1])
 
 
-def generate_daily_content():
+def generate_ai_recommendations():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("Set OPENAI_API_KEY environment variable.")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     prompt = f"""
-You are generating a daily email digest for a user in Lebanon.
-Generate content for date: {today}.
-Make it feel different from previous days in tone and choices.
+You are generating two sections for a daily email digest for a user in Lebanon.
+Generate content for date: {today}. Make today's picks feel different from yesterday:
+- vary music genre/era/tempo
+- vary adventure terrain and vibe
 
 Return ONLY valid JSON (no markdown) with this exact schema:
 {{
-  "quote": "string",
   "song": {{
     "title": "string",
     "artist": "string",
@@ -47,10 +48,8 @@ Return ONLY valid JSON (no markdown) with this exact schema:
 }}
 
 Rules:
-- Keep quote short and inspiring.
 - Song should be popular and playable on guitar with realistic chord progression.
 - Adventure must be in Lebanon.
-- Avoid repeating the same artist/style as a typical previous day.
 - Keep fields concise and clean for newsletter formatting.
 """.strip()
 
@@ -95,6 +94,6 @@ Rules:
     content = body["choices"][0]["message"]["content"]
     parsed = _extract_json_object(content)
 
-    if not parsed.get("quote") or not parsed.get("song") or not parsed.get("adventure"):
+    if not parsed.get("song") or not parsed.get("adventure"):
         raise ValueError("OpenAI response missing required fields.")
     return parsed
