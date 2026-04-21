@@ -2,7 +2,7 @@ name: Daily Email
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
         env:
           DAILY_FEED_EMAIL: ${{ secrets.EMAIL_USER }}
           DAILY_FEED_PASSWORD: ${{ secrets.EMAIL_PASS }}
-          DAILY_FEED_RECIPIENT: ${{ secrets.EMAIL_USER }}
+          DAILY_FEED_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
           DAILY_FEED_FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
