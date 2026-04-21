@@ -89,7 +89,7 @@ Current schedule:
 cron: "0 4 * * *"
 ```
 
-This is UTC time. Adjust if you want a specific Lebanon local time.
+This is UTC time. Adjust if you want a specific local time.
 
 ## How to Customize Email Content
 
