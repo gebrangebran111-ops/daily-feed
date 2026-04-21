@@ -2,8 +2,30 @@ from services.email_service import send_email
 from services.openai_service import generate_daily_content
 
 
+def _fallback_daily_content():
+    return {
+        "quote": "Small progress every day adds up to big results.",
+        "song": {
+            "title": "Stand by Me",
+            "artist": "Ben E. King",
+            "difficulty": "easy",
+            "chords": "G - Em - C - D",
+        },
+        "adventure": {
+            "name": "Shouf Biosphere Reserve",
+            "type": "Hiking",
+            "difficulty": "easy",
+            "description": "A calm cedar forest route with beautiful mountain air.",
+        },
+    }
+
+
 def build_daily_message():
-    daily = generate_daily_content()
+    try:
+        daily = generate_daily_content()
+    except Exception:
+        # Keep the daily email flowing even if OpenAI is temporarily rate-limited.
+        daily = _fallback_daily_content()
     quote = daily["quote"]
     song = daily["song"]
     location = daily["adventure"]
