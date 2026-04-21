@@ -1,11 +1,12 @@
 import json
+import logging
 import os
 import time
 from datetime import datetime, timezone
-from urllib import parse
-from urllib import error
-from urllib import request
+from urllib import error, request
 
+
+logger = logging.getLogger("daily_feed.openai")
 
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
@@ -21,7 +22,8 @@ def _extract_json_object(content):
 def generate_ai_recommendations():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise ValueError("Set OPENAI_API_KEY environment variable.")
+        logger.error("OPENAI_API_KEY env variable is missing — cannot call OpenAI")
+        raise ValueError("OPENAI_API_KEY environment variable is not set.")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     prompt = f"""
@@ -65,7 +67,9 @@ Rules:
     retries = 3
     backoff_seconds = 5
     body = None
+
     for attempt in range(retries):
+        logger.info("POST %s (attempt %d/%d)", OPENAI_URL, attempt + 1, retries)
         req = request.Request(
             OPENAI_URL,
             data=json.dumps(payload).encode("utf-8"),
@@ -77,23 +81,38 @@ Rules:
         )
         try:
             with request.urlopen(req, timeout=60) as response:
+                status = response.status
+                logger.info("OpenAI response status: %s", status)
                 body = json.loads(response.read().decode("utf-8"))
             break
         except error.HTTPError as exc:
+            logger.error("OpenAI HTTP error %s: %s", exc.code, exc.reason)
             if exc.code == 429 and attempt < retries - 1:
                 retry_after = exc.headers.get("Retry-After")
                 sleep_for = int(retry_after) if retry_after and retry_after.isdigit() else backoff_seconds
+                logger.warning("Rate limited (429). Retrying in %ds...", sleep_for)
                 time.sleep(sleep_for)
                 backoff_seconds *= 2
                 continue
             raise
+        except error.URLError as exc:
+            logger.error("OpenAI URL error: %s", exc.reason)
+            raise
+        except Exception as exc:
+            logger.error("Unexpected error calling OpenAI: %s", exc)
+            raise
 
     if body is None:
-        raise ValueError("OpenAI call failed after retries.")
+        raise ValueError("OpenAI call failed after all retries.")
 
     content = body["choices"][0]["message"]["content"]
+    logger.info("OpenAI raw response length: %d chars", len(content))
+
     parsed = _extract_json_object(content)
 
     if not parsed.get("song") or not parsed.get("adventure"):
+        logger.error("OpenAI response missing required fields. Got: %s", list(parsed.keys()))
         raise ValueError("OpenAI response missing required fields.")
+
+    logger.info("OpenAI response parsed successfully")
     return parsed
