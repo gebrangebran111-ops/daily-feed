@@ -19,13 +19,13 @@ def send_email(content):
         logger.error("DAILY_FEED_PASSWORD env variable is missing")
         raise ValueError("DAILY_FEED_PASSWORD environment variable is not set.")
     if not recipient_email:
-        logger.error("DAILY_FEED_RECIPIENT env variable is missing — falling back to sender")
+        logger.warning("DAILY_FEED_RECIPIENT missing — falling back to sender address")
         recipient_email = sender_email
 
     logger.info("Sending email from %s to %s", sender_email, recipient_email)
 
     msg = EmailMessage()
-    msg["Subject"] = "Your Daily Inspiration Feed"
+    msg["Subject"] = "☀️ Your Daily Feed"
     msg["From"] = formataddr(("Daily Feed", sender_email))
     msg["To"] = recipient_email
     msg.set_content(content["text"])
