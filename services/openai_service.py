@@ -1,6 +1,8 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
+from urllib import error
 from urllib import request
 
 
@@ -61,18 +63,34 @@ Rules:
         ],
     }
 
-    req = request.Request(
-        OPENAI_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    retries = 3
+    backoff_seconds = 5
+    body = None
+    for attempt in range(retries):
+        req = request.Request(
+            OPENAI_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with request.urlopen(req, timeout=60) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            break
+        except error.HTTPError as exc:
+            if exc.code == 429 and attempt < retries - 1:
+                retry_after = exc.headers.get("Retry-After")
+                sleep_for = int(retry_after) if retry_after and retry_after.isdigit() else backoff_seconds
+                time.sleep(sleep_for)
+                backoff_seconds *= 2
+                continue
+            raise
 
-    with request.urlopen(req, timeout=60) as response:
-        body = json.loads(response.read().decode("utf-8"))
+    if body is None:
+        raise ValueError("OpenAI call failed after retries.")
 
     content = body["choices"][0]["message"]["content"]
     parsed = _extract_json_object(content)
