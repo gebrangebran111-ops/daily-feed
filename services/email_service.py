@@ -2,6 +2,7 @@ import os
 import smtplib
 from pathlib import Path
 from email.message import EmailMessage
+from email.utils import formataddr
 
 
 def _load_env_file():
@@ -31,7 +32,7 @@ def send_email(content):
 
     msg = EmailMessage()
     msg["Subject"] = "Your Daily Inspiration Feed"
-    msg["From"] = sender_email
+    msg["From"] = formataddr(("Daily Feed", sender_email))
     msg["To"] = recipient_email
     msg.set_content(content["text"])
     msg.add_alternative(content["html"], subtype="html")
