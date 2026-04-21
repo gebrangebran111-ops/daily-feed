@@ -1,34 +1,25 @@
+import logging
 import os
 import smtplib
-from pathlib import Path
 from email.message import EmailMessage
 from email.utils import formataddr
 
-
-def _load_env_file():
-    env_path = Path(__file__).with_name(".env")
-    if not env_path.exists():
-        return
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
+logger = logging.getLogger("daily_feed.email")
 
 
 def send_email(content):
-    _load_env_file()
     sender_email = os.getenv("DAILY_FEED_EMAIL")
     sender_password = os.getenv("DAILY_FEED_PASSWORD")
     recipient_email = os.getenv("DAILY_FEED_RECIPIENT", sender_email)
 
-    if not sender_email or not sender_password:
-        raise ValueError("Set DAILY_FEED_EMAIL and DAILY_FEED_PASSWORD environment variables.")
+    if not sender_email:
+        logger.error("DAILY_FEED_EMAIL env variable is missing")
+        raise ValueError("DAILY_FEED_EMAIL environment variable is not set.")
+    if not sender_password:
+        logger.error("DAILY_FEED_PASSWORD env variable is missing")
+        raise ValueError("DAILY_FEED_PASSWORD environment variable is not set.")
+
+    logger.info("Sending email from %s to %s", sender_email, recipient_email)
 
     msg = EmailMessage()
     msg["Subject"] = "Your Daily Inspiration Feed"
@@ -41,3 +32,5 @@ def send_email(content):
         server.starttls()
         server.login(sender_email, sender_password)
         server.send_message(msg)
+
+    logger.info("Email sent successfully to %s", recipient_email)
