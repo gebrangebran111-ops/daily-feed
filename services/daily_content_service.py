@@ -5,7 +5,6 @@ from urllib import error, parse, request
 
 from services.openai_service import generate_ai_recommendations
 
-
 logger = logging.getLogger("daily_feed")
 
 
@@ -28,42 +27,51 @@ def _fetch_json(url, headers=None, timeout=20):
         raise
 
 
+_BOOK_NAMES = {
+    1: "Genesis", 2: "Exodus", 3: "Leviticus", 4: "Numbers", 5: "Deuteronomy",
+    6: "Joshua", 7: "Judges", 8: "Ruth", 9: "1 Samuel", 10: "2 Samuel",
+    11: "1 Kings", 12: "2 Kings", 13: "1 Chronicles", 14: "2 Chronicles",
+    15: "Ezra", 16: "Nehemiah", 17: "Esther", 18: "Job", 19: "Psalms",
+    20: "Proverbs", 21: "Ecclesiastes", 22: "Song of Solomon", 23: "Isaiah",
+    24: "Jeremiah", 25: "Lamentations", 26: "Ezekiel", 27: "Daniel",
+    28: "Hosea", 29: "Joel", 30: "Amos", 31: "Obadiah", 32: "Jonah",
+    33: "Micah", 34: "Nahum", 35: "Habakkuk", 36: "Zephaniah", 37: "Haggai",
+    38: "Zechariah", 39: "Malachi", 40: "Matthew", 41: "Mark", 42: "Luke",
+    43: "John", 44: "Acts", 45: "Romans", 46: "1 Corinthians",
+    47: "2 Corinthians", 48: "Galatians", 49: "Ephesians", 50: "Philippians",
+    51: "Colossians", 52: "1 Thessalonians", 53: "2 Thessalonians",
+    54: "1 Timothy", 55: "2 Timothy", 56: "Titus", 57: "Philemon",
+    58: "Hebrews", 59: "James", 60: "1 Peter", 61: "2 Peter",
+    62: "1 John", 63: "2 John", 64: "3 John", 65: "Jude", 66: "Revelation",
+}
+
+
 def get_verse_of_the_day():
     logger.info("--- Fetching: Verse of the Day ---")
     try:
-        data = _fetch_json("https://beta.ourmanna.com/api/v1/get/?format=json")
-        details = data["verse"]["details"]
-        logger.info("Verse fetched successfully")
-        return {
-            "text": details["text"].strip(),
-            "reference": details["reference"].strip(),
-        }
+        data = _fetch_json("https://bolls.life/get-random-verse/NIV/")
+        book_name = _BOOK_NAMES.get(data["book"], f"Book {data['book']}")
+        reference = f"{book_name} {data['chapter']}:{data['verse']}"
+        text = (
+            data["text"]
+            .replace("<p>", "").replace("</p>", "")
+            .replace("<i>", "").replace("</i>", "")
+            .strip()
+        )
+        logger.info("Verse fetched successfully: %s", reference)
+        return {"text": text, "reference": reference}
     except Exception as exc:
         logger.error("Verse fetch failed: %s", exc)
         logger.warning("FALLBACK triggered for verse")
-        return {
-            "text": "Verse unavailable today.",
-            "reference": "—",
-        }
+        return {"text": "Verse unavailable today.", "reference": "—"}
 
 
 def _weather_label(weather_code):
     code_map = {
-        0: "Clear sky",
-        1: "Mainly clear",
-        2: "Partly cloudy",
-        3: "Overcast",
-        45: "Foggy",
-        48: "Rime fog",
-        51: "Light drizzle",
-        53: "Drizzle",
-        55: "Dense drizzle",
-        61: "Slight rain",
-        63: "Rain",
-        65: "Heavy rain",
-        80: "Rain showers",
-        81: "Rain showers",
-        82: "Heavy rain showers",
+        0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+        45: "Foggy", 48: "Rime fog", 51: "Light drizzle", 53: "Drizzle",
+        55: "Dense drizzle", 61: "Slight rain", 63: "Rain", 65: "Heavy rain",
+        80: "Rain showers", 81: "Rain showers", 82: "Heavy rain showers",
         95: "Thunderstorm",
     }
     return code_map.get(weather_code, "Mixed weather")
@@ -83,15 +91,13 @@ def get_weather():
         daily = data["daily"]
         days = []
         for i in range(2):
-            days.append(
-                {
-                    "date": daily["time"][i],
-                    "condition": _weather_label(daily["weathercode"][i]),
-                    "temp_max": round(daily["temperature_2m_max"][i]),
-                    "temp_min": round(daily["temperature_2m_min"][i]),
-                    "rain_mm": round(daily["precipitation_sum"][i], 1),
-                }
-            )
+            days.append({
+                "date": daily["time"][i],
+                "condition": _weather_label(daily["weathercode"][i]),
+                "temp_max": round(daily["temperature_2m_max"][i]),
+                "temp_min": round(daily["temperature_2m_min"][i]),
+                "rain_mm": round(daily["precipitation_sum"][i], 1),
+            })
         logger.info("Weather fetched successfully")
         return {"city": "Beirut, Lebanon", "days": days}
     except Exception as exc:
@@ -100,20 +106,8 @@ def get_weather():
         return {
             "city": "Beirut, Lebanon",
             "days": [
-                {
-                    "date": "Today",
-                    "condition": "Weather unavailable",
-                    "temp_max": "—",
-                    "temp_min": "—",
-                    "rain_mm": "—",
-                },
-                {
-                    "date": "Tomorrow",
-                    "condition": "Weather unavailable",
-                    "temp_max": "—",
-                    "temp_min": "—",
-                    "rain_mm": "—",
-                },
+                {"date": "Today", "condition": "Weather unavailable", "temp_max": "—", "temp_min": "—", "rain_mm": "—"},
+                {"date": "Tomorrow", "condition": "Weather unavailable", "temp_max": "—", "temp_min": "—", "rain_mm": "—"},
             ],
         }
 
@@ -123,23 +117,14 @@ def get_international_news():
     api_key = os.getenv("NEWSAPI_KEY")
     if not api_key:
         logger.error("NEWSAPI_KEY env variable is missing — skipping news fetch")
-        return {
-            "headlines": [
-                {
-                    "title": "News unavailable (NEWSAPI_KEY not configured).",
-                    "source": "—",
-                }
-            ]
-        }
+        return {"headlines": [{"title": "News unavailable (NEWSAPI_KEY not configured).", "source": "—"}]}
 
-    query = parse.urlencode(
-        {
-            "q": "(politics OR economy OR technology OR geopolitics OR diplomacy)",
-            "language": "en",
-            "sortBy": "popularity",
-            "pageSize": 12,
-        }
-    )
+    query = parse.urlencode({
+        "q": "(politics OR economy OR technology OR geopolitics OR diplomacy)",
+        "language": "en",
+        "sortBy": "popularity",
+        "pageSize": 12,
+    })
     url = f"https://newsapi.org/v2/everything?{query}"
     try:
         data = _fetch_json(url, headers={"X-Api-Key": api_key})
@@ -161,14 +146,7 @@ def get_international_news():
     except Exception as exc:
         logger.error("News fetch failed: %s", exc)
         logger.warning("FALLBACK triggered for news")
-        return {
-            "headlines": [
-                {
-                    "title": "News unavailable — could not reach News API.",
-                    "source": "—",
-                }
-            ]
-        }
+        return {"headlines": [{"title": "News unavailable — could not reach News API.", "source": "—"}]}
 
 
 def get_fun_fact():
@@ -186,17 +164,13 @@ def get_fun_fact():
 def get_quote_of_the_day():
     logger.info("--- Fetching: Quote of the Day ---")
     try:
-        data = _fetch_json("https://zenquotes.io/api/today")
-        quote = data[0]
+        data = _fetch_json("https://dummyjson.com/quotes/random")
         logger.info("Quote fetched successfully")
-        return {"text": quote["q"].strip(), "author": quote["a"].strip()}
+        return {"text": data["quote"].strip(), "author": data["author"].strip()}
     except Exception as exc:
         logger.error("Quote fetch failed: %s", exc)
         logger.warning("FALLBACK triggered for quote")
-        return {
-            "text": "Quote unavailable today.",
-            "author": "—",
-        }
+        return {"text": "Quote unavailable today.", "author": "—"}
 
 
 def generate_daily_content():
@@ -208,16 +182,9 @@ def generate_daily_content():
         logger.error("AI recommendation generation failed: %s", exc)
         logger.warning("FALLBACK triggered for AI recommendations")
         ai_data = {
-            "song": {
-                "title": "Unavailable",
-                "artist": "—",
-                "difficulty": "—",
-                "chords": "—",
-            },
+            "song": {"title": "Unavailable", "artist": "—", "difficulty": "—", "chords": "—"},
             "adventure": {
-                "name": "Unavailable",
-                "type": "—",
-                "difficulty": "—",
+                "name": "Unavailable", "type": "—", "difficulty": "—",
                 "description": "Adventure pick could not be generated today.",
                 "country": "Lebanon",
             },
