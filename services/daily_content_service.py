@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from urllib import parse, request
+from urllib import error, parse, request
 
 from services.openai_service import generate_ai_recommendations
 
@@ -11,12 +11,25 @@ logger = logging.getLogger("daily_feed")
 
 def _fetch_json(url, headers=None, timeout=20):
     req = request.Request(url, headers=headers or {})
-    with request.urlopen(req, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    logger.info("GET %s", url)
+    try:
+        with request.urlopen(req, timeout=timeout) as response:
+            status = response.status
+            logger.info("Response status: %s", status)
+            return json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        logger.error("HTTP error %s for URL: %s", exc.code, url)
+        raise
+    except error.URLError as exc:
+        logger.error("URL error for %s: %s", url, exc.reason)
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error fetching %s: %s", url, exc)
+        raise
 
 
 def get_verse_of_the_day():
-    logger.info("Fetching verse of the day")
+    logger.info("--- Fetching: Verse of the Day ---")
     try:
         data = _fetch_json("https://beta.ourmanna.com/api/v1/get/?format=json")
         details = data["verse"]["details"]
@@ -26,10 +39,11 @@ def get_verse_of_the_day():
             "reference": details["reference"].strip(),
         }
     except Exception as exc:
-        logger.exception("Verse fetch failed: %s", exc)
+        logger.error("Verse fetch failed: %s", exc)
+        logger.warning("FALLBACK triggered for verse")
         return {
-            "text": "For with God nothing shall be impossible.",
-            "reference": "Luke 1:37",
+            "text": "Verse unavailable today.",
+            "reference": "—",
         }
 
 
@@ -56,8 +70,7 @@ def _weather_label(weather_code):
 
 
 def get_weather():
-    logger.info("Fetching weather forecast")
-    # Beirut coordinates
+    logger.info("--- Fetching: Weather ---")
     lat, lon = 33.8938, 35.5018
     url = (
         "https://api.open-meteo.com/v1/forecast?"
@@ -82,38 +95,39 @@ def get_weather():
         logger.info("Weather fetched successfully")
         return {"city": "Beirut, Lebanon", "days": days}
     except Exception as exc:
-        logger.exception("Weather fetch failed: %s", exc)
+        logger.error("Weather fetch failed: %s", exc)
+        logger.warning("FALLBACK triggered for weather")
         return {
             "city": "Beirut, Lebanon",
             "days": [
                 {
                     "date": "Today",
-                    "condition": "Unavailable",
-                    "temp_max": "-",
-                    "temp_min": "-",
-                    "rain_mm": "-",
+                    "condition": "Weather unavailable",
+                    "temp_max": "—",
+                    "temp_min": "—",
+                    "rain_mm": "—",
                 },
                 {
                     "date": "Tomorrow",
-                    "condition": "Unavailable",
-                    "temp_max": "-",
-                    "temp_min": "-",
-                    "rain_mm": "-",
+                    "condition": "Weather unavailable",
+                    "temp_max": "—",
+                    "temp_min": "—",
+                    "rain_mm": "—",
                 },
             ],
         }
 
 
 def get_international_news():
-    logger.info("Fetching international news")
+    logger.info("--- Fetching: International News ---")
     api_key = os.getenv("NEWSAPI_KEY")
     if not api_key:
-        logger.error("NEWSAPI_KEY missing; news section will use fallback")
+        logger.error("NEWSAPI_KEY env variable is missing — skipping news fetch")
         return {
             "headlines": [
                 {
-                    "title": "International news unavailable (missing NEWSAPI_KEY).",
-                    "source": "Setup needed",
+                    "title": "News unavailable (NEWSAPI_KEY not configured).",
+                    "source": "—",
                 }
             ]
         }
@@ -141,67 +155,70 @@ def get_international_news():
             if len(headlines) == 3:
                 break
         if not headlines:
-            raise ValueError("No news headlines returned.")
+            raise ValueError("No news headlines returned in API response")
         logger.info("News fetched successfully: %s headlines", len(headlines))
         return {"headlines": headlines}
     except Exception as exc:
-        logger.exception("News fetch failed: %s", exc)
+        logger.error("News fetch failed: %s", exc)
+        logger.warning("FALLBACK triggered for news")
         return {
             "headlines": [
                 {
-                    "title": "Could not fetch international news right now.",
-                    "source": "News API",
+                    "title": "News unavailable — could not reach News API.",
+                    "source": "—",
                 }
             ]
         }
 
 
 def get_fun_fact():
-    logger.info("Fetching fun fact")
+    logger.info("--- Fetching: Fun Fact ---")
     try:
         data = _fetch_json("https://uselessfacts.jsph.pl/api/v2/facts/random?language=en")
         logger.info("Fun fact fetched successfully")
         return data["text"].strip()
     except Exception as exc:
-        logger.exception("Fun fact fetch failed: %s", exc)
-        return "Honey never spoils. Archaeologists have found edible honey in ancient tombs."
+        logger.error("Fun fact fetch failed: %s", exc)
+        logger.warning("FALLBACK triggered for fun fact")
+        return "Fun fact unavailable today."
 
 
 def get_quote_of_the_day():
-    # Real-person quote API (non-AI generated content feed)
-    logger.info("Fetching quote of the day")
+    logger.info("--- Fetching: Quote of the Day ---")
     try:
         data = _fetch_json("https://zenquotes.io/api/today")
         quote = data[0]
         logger.info("Quote fetched successfully")
         return {"text": quote["q"].strip(), "author": quote["a"].strip()}
     except Exception as exc:
-        logger.exception("Quote fetch failed: %s", exc)
+        logger.error("Quote fetch failed: %s", exc)
+        logger.warning("FALLBACK triggered for quote")
         return {
-            "text": "Success is the sum of small efforts repeated day in and day out.",
-            "author": "Robert Collier",
+            "text": "Quote unavailable today.",
+            "author": "—",
         }
 
 
 def generate_daily_content():
-    logger.info("Generating AI recommendations for guitar and adventure")
+    logger.info("--- Generating: AI Recommendations (guitar + adventure) ---")
     try:
         ai_data = generate_ai_recommendations()
         logger.info("AI recommendations generated successfully")
     except Exception as exc:
-        logger.exception("AI recommendation generation failed: %s", exc)
+        logger.error("AI recommendation generation failed: %s", exc)
+        logger.warning("FALLBACK triggered for AI recommendations")
         ai_data = {
             "song": {
-                "title": "Stand by Me",
-                "artist": "Ben E. King",
-                "difficulty": "easy",
-                "chords": "G - Em - C - D",
+                "title": "Unavailable",
+                "artist": "—",
+                "difficulty": "—",
+                "chords": "—",
             },
             "adventure": {
-                "name": "Shouf Biosphere Reserve",
-                "type": "Hiking",
-                "difficulty": "easy",
-                "description": "A calm cedar forest route with beautiful mountain air.",
+                "name": "Unavailable",
+                "type": "—",
+                "difficulty": "—",
+                "description": "Adventure pick could not be generated today.",
                 "country": "Lebanon",
             },
         }
