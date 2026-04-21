@@ -5,7 +5,6 @@ import time
 from datetime import datetime, timezone
 from urllib import error, request
 
-
 logger = logging.getLogger("daily_feed.openai")
 
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
@@ -16,7 +15,7 @@ def _extract_json_object(content):
     end = content.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError("OpenAI response did not include valid JSON.")
-    return json.loads(content[start : end + 1])
+    return json.loads(content[start: end + 1])
 
 
 def generate_ai_recommendations():
@@ -81,8 +80,7 @@ Rules:
         )
         try:
             with request.urlopen(req, timeout=60) as response:
-                status = response.status
-                logger.info("OpenAI response status: %s", status)
+                logger.info("OpenAI response status: %s", response.status)
                 body = json.loads(response.read().decode("utf-8"))
             break
         except error.HTTPError as exc:
