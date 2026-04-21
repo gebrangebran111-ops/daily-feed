@@ -63,12 +63,12 @@ Rules:
         ],
     }
 
-    retries = 3
-    backoff_seconds = 5
+    # Retry with increasing backoff. Free tier often needs a longer first wait.
+    delays = [15, 30, 60]
     body = None
 
-    for attempt in range(retries):
-        logger.info("POST %s (attempt %d/%d)", OPENAI_URL, attempt + 1, retries)
+    for attempt, delay in enumerate(delays, start=1):
+        logger.info("POST %s (attempt %d/%d)", OPENAI_URL, attempt, len(delays))
         req = request.Request(
             OPENAI_URL,
             data=json.dumps(payload).encode("utf-8"),
@@ -85,13 +85,13 @@ Rules:
             break
         except error.HTTPError as exc:
             logger.error("OpenAI HTTP error %s: %s", exc.code, exc.reason)
-            if exc.code == 429 and attempt < retries - 1:
+            if exc.code == 429:
                 retry_after = exc.headers.get("Retry-After")
-                sleep_for = int(retry_after) if retry_after and retry_after.isdigit() else backoff_seconds
-                logger.warning("Rate limited (429). Retrying in %ds...", sleep_for)
-                time.sleep(sleep_for)
-                backoff_seconds *= 2
-                continue
+                sleep_for = int(retry_after) if retry_after and retry_after.isdigit() else delay
+                if attempt < len(delays):
+                    logger.warning("Rate limited (429). Retrying in %ds...", sleep_for)
+                    time.sleep(sleep_for)
+                    continue
             raise
         except error.URLError as exc:
             logger.error("OpenAI URL error: %s", exc.reason)
