@@ -1,48 +1,12 @@
-from data.quotes import get_quote
-from data.quotes import QUOTES
-from data.songs import get_song
-from data.songs import SONGS
-from data.songs import DIFFICULTY_ORDER as SONG_DIFFICULTY_ORDER
-from data.locations import get_location
-from data.locations import LOCATIONS
-from data.locations import DIFFICULTY_ORDER as LOCATION_DIFFICULTY_ORDER
 from services.email_service import send_email
-from services.used_items_service import load_used_items
-from services.used_items_service import save_used_items
-from services.used_items_service import reset_if_all_used
+from services.openai_service import generate_daily_content
 
 
 def build_daily_message():
-    used_items = load_used_items()
-    used_items = reset_if_all_used(used_items, len(QUOTES), len(SONGS), len(LOCATIONS))
-
-    quote = get_quote(used_items["quotes"])
-    song_difficulty = SONG_DIFFICULTY_ORDER[
-        used_items["song_difficulty_index"] % len(SONG_DIFFICULTY_ORDER)
-    ]
-    location_difficulty = LOCATION_DIFFICULTY_ORDER[
-        used_items["location_difficulty_index"] % len(LOCATION_DIFFICULTY_ORDER)
-    ]
-
-    song = get_song(
-        used_items["songs"],
-        target_difficulty=song_difficulty,
-        excluded_artist=used_items.get("last_song_artist"),
-    )
-    location = get_location(
-        used_items["locations"],
-        target_difficulty=location_difficulty,
-        excluded_type=used_items.get("last_location_type"),
-    )
-
-    used_items["quotes"].append(quote)
-    used_items["songs"].append(f"{song['title']}::{song['artist']}")
-    used_items["locations"].append(location["name"])
-    used_items["song_difficulty_index"] += 1
-    used_items["location_difficulty_index"] += 1
-    used_items["last_song_artist"] = song["artist"]
-    used_items["last_location_type"] = location["type"]
-    save_used_items(used_items)
+    daily = generate_daily_content()
+    quote = daily["quote"]
+    song = daily["song"]
+    location = daily["adventure"]
 
     lines = [
         "DAILY FEED",
