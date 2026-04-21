@@ -1,6 +1,12 @@
 import json
+import logging
 import os
 from urllib import parse, request
+
+from services.openai_service import generate_ai_recommendations
+
+
+logger = logging.getLogger("daily_feed")
 
 
 def _fetch_json(url, headers=None, timeout=20):
@@ -10,14 +16,17 @@ def _fetch_json(url, headers=None, timeout=20):
 
 
 def get_verse_of_the_day():
+    logger.info("Fetching verse of the day")
     try:
         data = _fetch_json("https://beta.ourmanna.com/api/v1/get/?format=json")
         details = data["verse"]["details"]
+        logger.info("Verse fetched successfully")
         return {
             "text": details["text"].strip(),
             "reference": details["reference"].strip(),
         }
-    except Exception:
+    except Exception as exc:
+        logger.exception("Verse fetch failed: %s", exc)
         return {
             "text": "For with God nothing shall be impossible.",
             "reference": "Luke 1:37",
@@ -47,6 +56,7 @@ def _weather_label(weather_code):
 
 
 def get_weather():
+    logger.info("Fetching weather forecast")
     # Beirut coordinates
     lat, lon = 33.8938, 35.5018
     url = (
@@ -69,8 +79,10 @@ def get_weather():
                     "rain_mm": round(daily["precipitation_sum"][i], 1),
                 }
             )
+        logger.info("Weather fetched successfully")
         return {"city": "Beirut, Lebanon", "days": days}
-    except Exception:
+    except Exception as exc:
+        logger.exception("Weather fetch failed: %s", exc)
         return {
             "city": "Beirut, Lebanon",
             "days": [
@@ -93,54 +105,78 @@ def get_weather():
 
 
 def get_international_news():
+    logger.info("Fetching international news")
     api_key = os.getenv("NEWSAPI_KEY")
     if not api_key:
+        logger.error("NEWSAPI_KEY missing; news section will use fallback")
         return {
-            "title": "International news is unavailable (missing NEWSAPI_KEY).",
-            "source": "Setup needed",
-            "url": "",
+            "headlines": [
+                {
+                    "title": "International news unavailable (missing NEWSAPI_KEY).",
+                    "source": "Setup needed",
+                }
+            ]
         }
 
     query = parse.urlencode(
         {
-            "q": "international OR global OR world",
+            "q": "(politics OR economy OR technology OR geopolitics OR diplomacy)",
             "language": "en",
-            "sortBy": "publishedAt",
-            "pageSize": 1,
+            "sortBy": "popularity",
+            "pageSize": 12,
         }
     )
     url = f"https://newsapi.org/v2/everything?{query}"
     try:
         data = _fetch_json(url, headers={"X-Api-Key": api_key})
-        article = data["articles"][0]
+        seen_titles = set()
+        headlines = []
+        for article in data.get("articles", []):
+            title = (article.get("title") or "").strip()
+            source = (article.get("source", {}).get("name") or "Unknown").strip()
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+            headlines.append({"title": title, "source": source})
+            if len(headlines) == 3:
+                break
+        if not headlines:
+            raise ValueError("No news headlines returned.")
+        logger.info("News fetched successfully: %s headlines", len(headlines))
+        return {"headlines": headlines}
+    except Exception as exc:
+        logger.exception("News fetch failed: %s", exc)
         return {
-            "title": article["title"],
-            "source": article["source"]["name"],
-            "url": article.get("url", ""),
-        }
-    except Exception:
-        return {
-            "title": "Could not fetch international news right now.",
-            "source": "News API",
-            "url": "",
+            "headlines": [
+                {
+                    "title": "Could not fetch international news right now.",
+                    "source": "News API",
+                }
+            ]
         }
 
 
 def get_fun_fact():
+    logger.info("Fetching fun fact")
     try:
         data = _fetch_json("https://uselessfacts.jsph.pl/api/v2/facts/random?language=en")
+        logger.info("Fun fact fetched successfully")
         return data["text"].strip()
-    except Exception:
+    except Exception as exc:
+        logger.exception("Fun fact fetch failed: %s", exc)
         return "Honey never spoils. Archaeologists have found edible honey in ancient tombs."
 
 
 def get_quote_of_the_day():
     # Real-person quote API (non-AI generated content feed)
+    logger.info("Fetching quote of the day")
     try:
         data = _fetch_json("https://zenquotes.io/api/today")
         quote = data[0]
+        logger.info("Quote fetched successfully")
         return {"text": quote["q"].strip(), "author": quote["a"].strip()}
-    except Exception:
+    except Exception as exc:
+        logger.exception("Quote fetch failed: %s", exc)
         return {
             "text": "Success is the sum of small efforts repeated day in and day out.",
             "author": "Robert Collier",
@@ -148,10 +184,34 @@ def get_quote_of_the_day():
 
 
 def generate_daily_content():
+    logger.info("Generating AI recommendations for guitar and adventure")
+    try:
+        ai_data = generate_ai_recommendations()
+        logger.info("AI recommendations generated successfully")
+    except Exception as exc:
+        logger.exception("AI recommendation generation failed: %s", exc)
+        ai_data = {
+            "song": {
+                "title": "Stand by Me",
+                "artist": "Ben E. King",
+                "difficulty": "easy",
+                "chords": "G - Em - C - D",
+            },
+            "adventure": {
+                "name": "Shouf Biosphere Reserve",
+                "type": "Hiking",
+                "difficulty": "easy",
+                "description": "A calm cedar forest route with beautiful mountain air.",
+                "country": "Lebanon",
+            },
+        }
+
     return {
         "verse": get_verse_of_the_day(),
         "weather": get_weather(),
         "news": get_international_news(),
         "fun_fact": get_fun_fact(),
         "quote": get_quote_of_the_day(),
+        "song": ai_data["song"],
+        "adventure": ai_data["adventure"],
     }
