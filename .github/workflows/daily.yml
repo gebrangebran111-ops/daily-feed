@@ -8,6 +8,8 @@ on:
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -26,3 +28,12 @@ jobs:
           GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
           DAILY_FEED_FORCE_SEND: "true"
         run: python main.py
+
+      - name: Keep repo active
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "Last run: $(date -u)" > .last_run
+          git add .last_run
+          git commit -m "chore: keep alive $(date -u +'%Y-%m-%d')"
+          git push
