@@ -1,138 +1,100 @@
 # Daily Feed
 
-Daily Feed is an automated Python project that sends a daily newsletter-style email with:
+An automated Python project that sends a beautiful daily newsletter to your inbox every morning at 7 AM Beirut time, powered by GitHub Actions.
 
-- a Verse of the Day
-- weather in Beirut (today + tomorrow)
-- up to 3 major international headlines
-- a Fun Fact of the Day
-- a Quote of the Day from a real person
-- an AI-generated guitar song pick
-- an AI-generated location/adventure pick in Lebanon
+## What's Inside Every Email
 
-Content is gathered from APIs and OpenAI, formatted into clean text + HTML, and delivered via Gmail SMTP.
-
-## What This Project Does
-
-On each run, the app:
-
-1. Fetches verse, weather, news, fun fact, and real-person quote
-2. Uses OpenAI to generate a guitar pick and Lebanon location pick
-3. Builds a modern newsletter layout with clean card sections
-4. Logs each section fetch and errors clearly (useful in GitHub Actions logs)
-5. Sends the email to your configured recipient
+| Section | Source |
+|---|---|
+| 📖 Verse of the Day | bolls.life API (random NIV verse) |
+| 🌤️ Weather — 7 day forecast | Open-Meteo API (Beirut) |
+| 🗞️ Top International News | GNews API (3 headlines with links) |
+| 🧠 Fun Fact | Useless Facts API |
+| 💬 Quote of the Day | Curated list, rotates daily |
+| 🎸 Guitar Pick | Curated list, rotates daily |
+| 🏕️ Lebanon Adventure Pick | Curated list, rotates daily |
 
 ## Project Structure
 
-- `main.py` - main flow (generate content, build email, send)
-- `services/daily_content_service.py` - fetch logic for verse/weather/news/fact/quote + AI section merge
-- `services/openai_service.py` - OpenAI call for guitar + location recommendations with retry
-- `services/email_service.py` - Gmail SMTP email sender
-- `.github/workflows/daily.yml` - scheduled GitHub Action
-- `services/.env` - local environment variables (not committed)
+```
+daily-feed/
+├── main.py                          # Builds and sends the email
+├── services/
+│   ├── daily_content_service.py     # Fetches all content + curated picks
+│   ├── email_service.py             # Gmail SMTP sender
+│   └── openai_service.py            # (unused, kept for reference)
+└── .github/
+    └── workflows/
+        └── daily.yml                # GitHub Actions cron schedule
+```
 
-## Setup (Local)
+## Setup
 
-### 1) Clone and open project
+### 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/GebranGebran/daily-feed.git
 cd daily-feed
 ```
 
-### 2) Create local env file
+### 2. Get your API keys
 
-Create `services/.env`:
+| Key | Where to get it | Free tier |
+|---|---|---|
+| Gmail App Password | [myaccount.google.com](https://myaccount.google.com) → Security → App Passwords | Free |
+| GNews API key | [gnews.io](https://gnews.io) → Sign up | 100 req/day |
 
-```env
-DAILY_FEED_EMAIL="you@gmail.com"
-DAILY_FEED_PASSWORD="your_gmail_app_password"
-DAILY_FEED_RECIPIENT="you@gmail.com"
-OPENAI_API_KEY="your_openai_api_key"
-NEWSAPI_KEY="your_newsapi_key"
-```
+> Use a Gmail **App Password**, not your regular Gmail password. 2-Step Verification must be enabled on your Google account first.
 
-Notes:
-- Use a Gmail **App Password** (not your normal Gmail password).
-- Keep `.env` private (already ignored in `.gitignore`).
+### 3. Add GitHub Secrets
 
-### 3) Run locally
+Go to your repo → **Settings → Secrets and variables → Actions → New repository secret**
 
-```bash
-python main.py
-```
+| Secret Name | Value |
+|---|---|
+| `EMAIL_USER` | Your Gmail address (e.g. `you@gmail.com`) |
+| `EMAIL_PASS` | Your Gmail App Password |
+| `EMAIL_RECIPIENT` | Address to receive the email (can be same as `EMAIL_USER`) |
+| `GNEWS_API_KEY` | Your GNews API key |
 
-## How to Add GitHub Secrets
+### 4. Enable the workflow
 
-In your GitHub repo:
+Go to **Actions** in your repo and make sure the `Daily Email` workflow is enabled. Then click **Run workflow** once manually to verify everything works.
 
-1. Go to `Settings` -> `Secrets and variables` -> `Actions`
-2. Click `New repository secret`
-3. Add these secrets:
-   - `EMAIL_USER` -> your Gmail address
-   - `EMAIL_PASS` -> your Gmail App Password
-   - `OPENAI_API_KEY` -> your OpenAI API key
-   - `NEWSAPI_KEY` -> your NewsAPI key
+## How the Schedule Works
 
-The workflow maps these secrets to runtime env vars used by your script.
-
-## How to Run the GitHub Action
-
-### Manual run
-
-1. Open your repo on GitHub
-2. Go to `Actions`
-3. Select `Daily Email`
-4. Click `Run workflow`
-
-### Scheduled run
-
-The workflow also runs automatically on the cron schedule in:
-
-- `.github/workflows/daily.yml`
-
-Current schedule:
+The workflow runs automatically every day at **4 AM UTC (7 AM Beirut time)** via this cron:
 
 ```yaml
 cron: "0 4 * * *"
 ```
 
-This is UTC time. Adjust if you want a specific Lebanon local time.
+A `.last_run` file is committed after each run to keep the repo active — GitHub disables scheduled workflows on inactive repos after 60 days of no commits.
 
-## How to Customize Email Content
+> GitHub's scheduler is not always precise. Expect the email to arrive anywhere between 7–9 AM Beirut time depending on GitHub's server load.
 
-### Change AI guitar and location behavior
+## Curated Content
 
-Edit prompt text in:
+The **Quote of the Day**, **Guitar Pick**, and **Lebanon Adventure Pick** sections do not use any external API. They are picked from curated lists inside `daily_content_service.py` using today's date as a seed, so each day gets a different pick that is consistent for that day.
 
-- `services/openai_service.py`
+To add or change picks, edit the `_QUOTES`, `_SONGS`, and `_ADVENTURES` lists directly in `services/daily_content_service.py`.
 
-You can customize:
-- guitar difficulty preference
-- music genre and era variation
-- location/adventure style in Lebanon
+## Customization
 
-### Change email visual formatting
+**Change the send time** — edit the cron in `.github/workflows/daily.yml`. Times are in UTC (Beirut is UTC+3).
 
-Edit email templates in:
+**Change the recipient** — update the `EMAIL_RECIPIENT` secret in GitHub.
 
-- `main.py`
+**Add more quotes/songs/adventures** — append entries to the relevant list in `daily_content_service.py` following the existing format.
 
-There are two formats:
-- `text` version (plain email clients)
-- `html` version (newsletter layout)
+**Change weather location** — edit `lat, lon` in `get_weather()` inside `daily_content_service.py`.
 
-You can update:
-- section titles
-- emojis
-- spacing
-- colors and card style in HTML
+## Troubleshooting
 
-## Automation Status
+**Email not arriving** — Check your spam folder and add your sender Gmail address to contacts.
 
-Once secrets are set and workflow is enabled, the system is fully automatic:
+**Scheduled run not firing** — Go to Actions, open the workflow, and click "Run workflow" manually once. This resets GitHub's scheduler. The `.last_run` commit after each run prevents the repo from going inactive.
 
-- GitHub Actions runs hourly and sends only at 7 AM Beirut time
-- APIs + OpenAI generate the newsletter content
-- email is sent automatically
+**GNews returning no articles** — You may have hit the 100 req/day free tier limit. The email will still send with a fallback message in the news section.
 
+**Secrets missing** — If any secret is missing, the run will fail with a clear error in the Actions log naming which variable is not set.
