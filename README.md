@@ -21,8 +21,7 @@ daily-feed/
 ├── main.py                          # Builds and sends the email
 ├── services/
 │   ├── daily_content_service.py     # Fetches all content + curated picks
-│   ├── email_service.py             # Gmail SMTP sender
-│   └── openai_service.py            # (unused, kept for reference)
+│   └── email_service.py             # Gmail SMTP sender
 └── .github/
     └── workflows/
         └── daily.yml                # GitHub Actions cron schedule
